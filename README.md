@@ -46,7 +46,6 @@ org/dreambot/slayerbot/
 
 1. Put the files in your script’s directory (`org.dreambot.slayerbot`).
 2. Compile or reload the script in your DreamBot script editor.
-3. The bot will now function identically, but in a modular and well-documented way.
 
 ---
 
@@ -54,9 +53,9 @@ If you want to add more behaviors, simply add new modules and connect them via t
 
 
 
-## TO DO 
-- [] Test initial build
-- [] Create the other classes
-- [] Add more gear, items, tele support
-- [] Verify if the project can run autonomously, add remaining functionality
-- [] ...
+## 🛠 TO DO 
+- Compile initial build
+- Create the other classes
+- Add more gear, items, tele support
+- Verify if the project can run autonomously, add remaining functionality
+- ...
