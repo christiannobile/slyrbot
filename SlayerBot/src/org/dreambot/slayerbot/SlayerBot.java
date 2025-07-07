@@ -2,7 +2,7 @@ package org.dreambot.slayerbot;
 
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.container.impl.bank.Bank;
-import org.dreambot.api.methods.container.impl.inventory.Inventory;
+import org.dreambot.api.methods.container.impl.Inventory;
 import org.dreambot.api.methods.dialogues.Dialogues;
 import org.dreambot.api.methods.interactive.NPCs;
 import org.dreambot.api.methods.interactive.Players;
@@ -77,6 +77,20 @@ public class SlayerBotFull extends AbstractScript {
 
     private boolean needNewTask() {
         return currentTask.isEmpty();
+    }
+
+    private boolean sleepUntil(BooleanSupplier condition, int timeoutMillis) {
+        int waited = 0;
+        int interval = 100;
+        while (!condition.getAsBoolean() && waited < timeoutMillis) {
+            try {
+                Thread.sleep(interval);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            waited += interval;
+        }
+        return condition.getAsBoolean();
     }
 
     private void getNewSlayerTask() {
