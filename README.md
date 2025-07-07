@@ -51,3 +51,12 @@ org/dreambot/slayerbot/
 ---
 
 If you want to add more behaviors, simply add new modules and connect them via the `SlayerManager`.
+
+
+
+## TO DO 
+- [] Test initial build
+- [] Create the other classes
+- [] Add more gear, items, tele support
+- [] Verify if the project can run autonomously, add remaining functionality
+- [] ...
