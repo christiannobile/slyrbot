@@ -17,6 +17,7 @@ import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.items.Item;
+import java.util.function.BooleanSupplier;
 
 import java.util.*;
 
