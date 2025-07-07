@@ -24,7 +24,6 @@ import org.dreambot.api.methods.map.Tile;
 import org.dreambot.api.methods.skills.Skill;
 import org.dreambot.api.methods.skills.Skills;
 import org.dreambot.api.methods.walking.impl.Walking;
-import org.dreambot.api.methods.widget.Widgets;
 import org.dreambot.api.script.AbstractScript;
 import org.dreambot.api.script.Category;
 import org.dreambot.api.script.ScriptManifest;
@@ -53,7 +52,7 @@ public class SlayerBot extends AbstractScript {
     );
 
     // Final: Gear presets based on combat style
-    private final Map<String, List<String>> gearPresets = new HashMap<>() {{
+    private final Map<String, List<String>> gearPresets = new HashMap<String, List<String>>() {{
         put("MELEE", Arrays.asList("Fire cape", "Dragon boots", "Abyssal whip", "Rune defender", "Barrows gloves"));
         put("MAGE", Arrays.asList("Ahrim's robetop", "Ahrim's robeskirt", "Occult necklace", "Staff of the dead"));
         put("RANGED", Arrays.asList("Toxic blowpipe", "Black d'hide body", "Black d'hide chaps", "Archer helm"));
@@ -78,14 +77,29 @@ public class SlayerBot extends AbstractScript {
 
         // Determine current state and perform actions accordingly
         switch (getState()) {
-            case GET_TASK -> getNewSlayerTask();
-            case TRAVEL -> travelToTask();
-            case BANK -> bankSupplies();
-            case HEAL -> healIfNeeded();
-            case POTIONS -> usePotions();
-            case COMBAT -> fightMonster();
-            case IDLE -> sleep(Calculations.random(300, 600));
+            case GET_TASK:
+                getNewSlayerTask();
+                break;
+            case TRAVEL:
+                travelToTask();
+                break;
+            case BANK:
+                bankSupplies();
+                break;
+            case HEAL:
+                healIfNeeded();
+                break;
+            case POTIONS:
+                usePotions();
+                break;
+            case COMBAT:
+                fightMonster();
+                break;
+            case IDLE:
+                sleep(Calculations.random(300, 600));
+                break;
         }
+
         return Calculations.random(500, 900);
     }
 
