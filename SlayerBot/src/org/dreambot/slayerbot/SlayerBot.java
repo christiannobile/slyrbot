@@ -1,4 +1,5 @@
 package org.dreambot.slayerbot;
+
 import org.dreambot.api.methods.container.impl.Inventory;
 import org.dreambot.api.methods.container.impl.bank.Bank;
 import org.dreambot.api.methods.container.impl.equipment.Equipment;
@@ -18,35 +19,39 @@ import java.util.*;
 
 public class SlayerTaskManager {
 
-    private static final Map<String, List<String>> MELEE_GEAR = Map.of(
-            "default", List.of("Dragon Scimitar", "Rune Platebody", "Rune Platelegs", "Dragon Defender", "Amulet of Strength")
-            // add more monster-specific melee gear here
-    );
-    private static final Map<String, List<String>> RANGED_GEAR = Map.of(
-            "default", List.of("Karil's Crossbow", "Black D'hide Body", "Black D'hide Chaps", "Archers Ring", "Ava's Accumulator")
-            // add more monster-specific ranged gear here
-    );
-    private static final Map<String, List<String>> MAGIC_GEAR = Map.of(
-            "default", List.of("Mystic Hat", "Mystic Robe Top", "Mystic Robe Bottom", "Occult Necklace", "Ahrim's Staff")
-            // add more monster-specific magic gear here
-    );
-
-    private static final Map<String, List<String>> INVENTORY_SETUP = Map.of(
-            "melee", List.of("Saradomin brew(4)", "Super restore(4)", "Sharks", "Dragon bones", "Dwarf cannon", "Cannonball"),
-            "ranged", List.of("Ranging potion(4)", "Super restore(4)", "Sharks", "Rune arrows"),
-            "magic", List.of("Magic potion(4)", "Super restore(4)", "Sharks", "Law rune", "Fire rune")
-    );
-
-    private static final List<String> AMMO_ITEMS = List.of("Rune arrows", "Dragon arrows", "Bolt racks");
-
-    private static final List<String> POTION_BASE_NAMES = List.of("Saradomin brew", "Super restore", "Ranging potion", "Magic potion");
+    private static final Map<String, List<String>> MELEE_GEAR = new HashMap<>();
+    private static final Map<String, List<String>> RANGED_GEAR = new HashMap<>();
+    private static final Map<String, List<String>> MAGIC_GEAR = new HashMap<>();
+    private static final Map<String, List<String>> INVENTORY_SETUP = new HashMap<>();
+    private static final List<String> AMMO_ITEMS;
+    private static final List<String> POTION_BASE_NAMES;
 
     private static final String CANNON_NAME = "Dwarf cannon";
     private static final String CANNONBALL_NAME = "Cannonball";
 
+    static {
+        MELEE_GEAR.put("default", Arrays.asList("Dragon Scimitar", "Rune Platebody", "Rune Platelegs", "Dragon Defender", "Amulet of Strength"));
+        // add more monster-specific melee gear here if needed
+
+        RANGED_GEAR.put("default", Arrays.asList("Karil's Crossbow", "Black D'hide Body", "Black D'hide Chaps", "Archers Ring", "Ava's Accumulator"));
+        // add more monster-specific ranged gear here if needed
+
+        MAGIC_GEAR.put("default", Arrays.asList("Mystic Hat", "Mystic Robe Top", "Mystic Robe Bottom", "Occult Necklace", "Ahrim's Staff"));
+        // add more monster-specific magic gear here if needed
+
+        INVENTORY_SETUP.put("melee", Arrays.asList("Saradomin brew(4)", "Super restore(4)", "Sharks", "Dragon bones", "Dwarf cannon", "Cannonball"));
+        INVENTORY_SETUP.put("ranged", Arrays.asList("Ranging potion(4)", "Super restore(4)", "Sharks", "Rune arrows"));
+        INVENTORY_SETUP.put("magic", Arrays.asList("Magic potion(4)", "Super restore(4)", "Sharks", "Law rune", "Fire rune"));
+
+        AMMO_ITEMS = Collections.unmodifiableList(Arrays.asList("Rune arrows", "Dragon arrows", "Bolt racks"));
+        POTION_BASE_NAMES = Collections.unmodifiableList(Arrays.asList("Saradomin brew", "Super restore", "Ranging potion", "Magic potion"));
+    }
+
     private final SlayerTeleportHelper teleportHelper = new SlayerTeleportHelper();
 
     private static final int AMMO_RESTOCK_THRESHOLD = 20;
+
+    // ... rest of your class remains unchanged ...
 
     public void handleSlayerTask(String monsterName) {
         MethodProvider.log("=== Slayer Task Handling started for monster: " + monsterName + " ===");
@@ -78,11 +83,18 @@ public class SlayerTaskManager {
 
     private void equipBestGear(String monsterName, String combatStyle) {
         MethodProvider.log("Equipping gear for combat style: " + combatStyle);
-        List<String> gearList = switch (combatStyle) {
-            case "ranged" -> RANGED_GEAR.getOrDefault(monsterName.toLowerCase(), RANGED_GEAR.get("default"));
-            case "magic" -> MAGIC_GEAR.getOrDefault(monsterName.toLowerCase(), MAGIC_GEAR.get("default"));
-            default -> MELEE_GEAR.getOrDefault(monsterName.toLowerCase(), MELEE_GEAR.get("default"));
-        };
+        List<String> gearList;
+        switch (combatStyle) {
+            case "ranged":
+                gearList = RANGED_GEAR.getOrDefault(monsterName.toLowerCase(), RANGED_GEAR.get("default"));
+                break;
+            case "magic":
+                gearList = MAGIC_GEAR.getOrDefault(monsterName.toLowerCase(), MAGIC_GEAR.get("default"));
+                break;
+            default:
+                gearList = MELEE_GEAR.getOrDefault(monsterName.toLowerCase(), MELEE_GEAR.get("default"));
+                break;
+        }
 
         for (String gear : gearList) {
             if (!Equipment.contains(gear)) {
@@ -189,99 +201,78 @@ public class SlayerTaskManager {
             itemsToCheck.addAll(AMMO_ITEMS);
         }
 
-        List<String> gearList = switch (combatStyle) {
-            case "ranged" -> RANGED_GEAR.getOrDefault("default", Collections.emptyList());
-            case "magic" -> MAGIC_GEAR.getOrDefault("default", Collections.emptyList());
-            default -> MELEE_GEAR.getOrDefault("default", Collections.emptyList());
-        };
+        List<String> gearList;
+        switch (combatStyle) {
+            case "ranged":
+                gearList = RANGED_GEAR.getOrDefault("default", Collections.emptyList());
+                break;
+            case "magic":
+                gearList = MAGIC_GEAR.getOrDefault("default", Collections.emptyList());
+                break;
+            default:
+                gearList = MELEE_GEAR.getOrDefault("default", Collections.emptyList());
+                break;
+        }
         itemsToCheck.addAll(gearList);
 
         for (String itemName : itemsToCheck) {
-            if (!Inventory.contains(itemName) && !Equipment.contains(itemName) && !Bank.contains(itemName)) {
-                MethodProvider.log("Item missing: " + itemName + ", buying from Grand Exchange...");
+            if (!Inventory.contains(itemName) && !Bank.contains(itemName)) {
+                MethodProvider.log("Item missing: " + itemName + ", attempting to buy.");
                 buyFromGrandExchange(itemName, 1);
             }
         }
     }
 
     private void buyFromGrandExchange(String itemName, int quantity) {
-        MethodProvider.log("Attempting to buy " + quantity + "x " + itemName + " from Grand Exchange.");
-
-        if (!GrandExchange.isOpen()) {
-            GrandExchange.open();
-            MethodProvider.sleepUntil(GrandExchange::isOpen, 5000);
+        MethodProvider.log("Attempting to buy " + quantity + "x " + itemName + " from Grand Exchange...");
+        List<GrandExchangeItem> items = GrandExchange.getItems(itemName);
+        if (items.isEmpty()) {
+            MethodProvider.log("No Grand Exchange item found for: " + itemName);
+            return;
         }
-
-        if (GrandExchange.isOpen()) {
-            GrandExchangeOffer offer = GrandExchange.createBuyOffer(itemName, quantity);
-            if (offer != null) {
-                offer.setPrice(calculatePrice(itemName));
-                offer.submit();
-                MethodProvider.log("Buy offer submitted for " + itemName);
-                Timer timer = new Timer(60000);
-                while (!offer.isFinished() && !timer.expired()) {
-                    MethodProvider.sleep(1000);
-                }
-                if (offer.isFinished()) {
-                    MethodProvider.log("Buy offer for " + itemName + " completed.");
-                    GrandExchange.collect();
-                } else {
-                    MethodProvider.log("Buy offer for " + itemName + " timed out.");
-                }
-            } else {
-                MethodProvider.log("Failed to create buy offer for " + itemName);
-            }
-            GrandExchange.close();
+        GrandExchangeItem geItem = items.get(0);
+        if (GrandExchange.open()) {
+            GrandExchange.buy(geItem, quantity, geItem.getPrice());
+            MethodProvider.sleepUntil(() -> Inventory.contains(itemName), 10000);
         }
-    }
-
-    private int calculatePrice(String itemName) {
-        // Placeholder: returns a price with a 10% margin above GE market price
-        int marketPrice = GrandExchange.getPrice(itemName);
-        int price = (int) (marketPrice * 1.10);
-        MethodProvider.log("Calculated buy price for " + itemName + ": " + price);
-        return price;
+        GrandExchange.close();
     }
 
     private void walkToTaskArea(String monsterName) {
-        // This method would contain walking logic based on the monster's slayer area
-        MethodProvider.log("Walking to Slayer task area for monster: " + monsterName);
-        // Placeholder example
+        MethodProvider.log("Walking to Slayer task area for " + monsterName);
+        // You should implement tile coordinates or pathfinding here based on monsterName.
+        // Placeholder example:
         Tile taskTile = getTaskAreaTile(monsterName);
         if (taskTile != null) {
             Walking.walk(taskTile);
-            MethodProvider.sleepUntil(() -> Players.localPlayer().getTile().distance(taskTile) < 5, 15000);
+            MethodProvider.sleepUntil(() -> Players.getLocal().getTile().distance(taskTile) < 5, 20000);
+        } else {
+            MethodProvider.log("No known tile for task area: " + monsterName);
         }
     }
 
     private Tile getTaskAreaTile(String monsterName) {
-        // Map monster name to Slayer task area tile for walking fallback
-        return switch (monsterName.toLowerCase()) {
-            case "dust devil" -> new Tile(3328, 3838, 0);
-            case "kurask" -> new Tile(2850, 3546, 0);
-            default -> new Tile(3000, 3200, 0);
-        };
+        // Placeholder: map monsters to their task area tiles
+        if (monsterName.toLowerCase().contains("kurask")) {
+            return new Tile(2843, 2972, 0); // Example: Kurasks in Fremennik Slayer Dungeon
+        }
+        if (monsterName.toLowerCase().contains("dust devil")) {
+            return new Tile(3164, 3856, 0); // Example: Dust Devils in Smoke Dungeon
+        }
+        if (monsterName.toLowerCase().contains("black demon")) {
+            return new Tile(2515, 4632, 0); // Example: Black Demons near the Catacombs of Kourend
+        }
+        // Add more monster to tile mappings here
+        return null;
     }
 
-    // You can extend this helper or replace with your teleport code
-    static class SlayerTeleportHelper {
-        boolean teleportToTask(String monsterName) {
-            // Try teleporting with jewelry, spells, or other means
-            MethodProvider.log("Attempting teleport to task area for " + monsterName);
+    // Additional helper classes or methods can be added below
 
-            // Example: Teleport using Slayer ring or Teleport tablets
-            if (Inventory.contains("Slayer ring")) {
-                Item ring = Inventory.get("Slayer ring");
-                if (ring != null && ring.interact("Rub")) {
-                    MethodProvider.sleepUntil(() -> Players.localPlayer().isAnimating(), 5000);
-                    MethodProvider.sleep(3000); // Wait for teleport
-                    return true;
-                }
-            }
-
-            // Add more teleport logic here (spells, tablets, etc.)
-
-            return false; // Teleport not available
+    // Inner class stub for teleporting (you should implement as needed)
+    private static class SlayerTeleportHelper {
+        public boolean teleportToTask(String monsterName) {
+            // Implement teleport logic here, returning true if teleport succeeded.
+            return false;
         }
     }
 }
