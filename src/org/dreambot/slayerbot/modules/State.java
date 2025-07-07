@@ -1,0 +1,1 @@
+public enum State { GET_TASK, TRAVEL, BANK, COMBAT, HEAL, POTIONS, IDLE }

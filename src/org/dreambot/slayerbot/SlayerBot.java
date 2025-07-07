@@ -1,5 +1,19 @@
+/*
+ * SlayerBot.java
+ * A fully autonomous OSRS Slayer bot using the DreamBot API.
+ *
+ * Java Concepts Explained:
+ * - class: A blueprint for objects. This is where the behavior and data are defined.
+ * - method: A block of code that performs a specific task. Defined with `void` or a return type.
+ * - void: Means the method does not return anything.
+ * - enum: A list of named constants, useful for states.
+ * - final: Used to declare constants or variables that should not change.
+ * - package: Groups related Java files together.
+ */
+
 package org.dreambot.slayerbot;
 
+// Importing the required DreamBot and Java libraries
 import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.container.impl.bank.Bank;
 import org.dreambot.api.methods.container.impl.Inventory;
@@ -17,10 +31,8 @@ import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.items.Item;
-import org.dreambot.api.methods.Calculations;
 import org.dreambot.api.methods.input.Camera;
 import org.dreambot.api.methods.input.mouse.MouseSettings;
-
 
 import java.util.function.BooleanSupplier;
 import java.util.*;
@@ -28,16 +40,19 @@ import java.util.*;
 @ScriptManifest(author = "cno", name = "Complete Slayer Bot", version = 1.0, description = "Autonomous Slayer bot", category = Category.COMBAT)
 public class SlayerBot extends AbstractScript {
 
+    // Enum: Represents the current state of the bot
     private enum State {
         GET_TASK, TRAVEL, BANK, COMBAT, HEAL, POTIONS, IDLE
     }
 
     private String currentTask = "";
 
+    // Final: This list of items should never change
     private final List<String> teleportItems = Arrays.asList(
             "Ring of dueling", "Games necklace", "Amulet of glory", "Ring of wealth", "Varrock teleport", "Falador teleport"
     );
 
+    // Final: Gear presets based on combat style
     private final Map<String, List<String>> gearPresets = new HashMap<>() {{
         put("MELEE", Arrays.asList("Fire cape", "Dragon boots", "Abyssal whip", "Rune defender", "Barrows gloves"));
         put("MAGE", Arrays.asList("Ahrim's robetop", "Ahrim's robeskirt", "Occult necklace", "Staff of the dead"));
@@ -46,18 +61,22 @@ public class SlayerBot extends AbstractScript {
 
     private long lastAntiBan = 0;
 
+    // Called once at script start
     @Override
     public void onStart() {
         Logger.log("Starting Slayer Bot");
     }
 
+    // Called continuously in a loop during script execution
     @Override
     public int onLoop() {
+        // Perform anti-ban every 20–40 seconds
         if (System.currentTimeMillis() - lastAntiBan > Calculations.random(20000, 40000)) {
             performAntiBan();
             lastAntiBan = System.currentTimeMillis();
         }
 
+        // Determine current state and perform actions accordingly
         switch (getState()) {
             case GET_TASK -> getNewSlayerTask();
             case TRAVEL -> travelToTask();
@@ -70,6 +89,7 @@ public class SlayerBot extends AbstractScript {
         return Calculations.random(500, 900);
     }
 
+    // Determines the current state of the bot
     private State getState() {
         if (needNewTask()) return State.GET_TASK;
         if (!hasSupplies()) return State.BANK;
@@ -84,6 +104,7 @@ public class SlayerBot extends AbstractScript {
         return currentTask.isEmpty();
     }
 
+    // Waits until a condition becomes true or timeout hits
     private boolean sleepUntil(BooleanSupplier condition, int timeoutMillis) {
         int waited = 0;
         int interval = 100;
@@ -98,6 +119,7 @@ public class SlayerBot extends AbstractScript {
         return condition.getAsBoolean();
     }
 
+    // Gets a new Slayer task from the nearest master
     private void getNewSlayerTask() {
         NPC master = NPCs.closest(npc -> npc.hasAction("Assignment") || npc.hasAction("Get-task"));
         if (master != null && master.interact("Assignment")) {
@@ -108,20 +130,19 @@ public class SlayerBot extends AbstractScript {
         }
     }
 
+    // Placeholder: Replace with widget parsing to get actual task
     private String parseSlayerTask() {
-        // Widget parsing needed. For now return a dummy task
         return "Troll";
     }
 
     private boolean isAtTaskLocation() {
-        // Stub: use Tile or Area based location check
-        return false;
+        return false; // To be implemented later
     }
 
     private void travelToTask() {
         if (!useTeleport()) {
             Logger.log("Walking to task manually");
-            Walking.walk(new Tile(2890, 3560)); // Placeholder tile for Trolls
+            Walking.walk(new Tile(2890, 3560)); // Example tile
         }
     }
 
@@ -131,7 +152,6 @@ public class SlayerBot extends AbstractScript {
                 Item teleport = Inventory.get(item);
                 if (teleport != null && teleport.interact("Rub")) {
                     sleep(Calculations.random(1000, 1500));
-                    // Additional widget interaction may be needed
                     return true;
                 }
             }
@@ -192,6 +212,7 @@ public class SlayerBot extends AbstractScript {
         }
     }
 
+    // Simulates human-like behavior to avoid bans
     private void performAntiBan() {
         MouseSettings.setSpeed(Calculations.random(80, 120));
         sleep(Calculations.random(300, 1200));
@@ -201,7 +222,6 @@ public class SlayerBot extends AbstractScript {
             Camera.rotateToYaw(Calculations.random(0, 360));
         }
     }
-
 
     @Override
     public void onExit() {
