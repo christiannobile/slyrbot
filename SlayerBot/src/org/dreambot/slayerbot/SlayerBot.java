@@ -17,12 +17,16 @@ import org.dreambot.api.script.ScriptManifest;
 import org.dreambot.api.utilities.Logger;
 import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.items.Item;
-import java.util.function.BooleanSupplier;
+import org.dreambot.api.methods.Calculations;
+import org.dreambot.api.methods.input.Camera;
+import org.dreambot.api.methods.input.mouse.MouseSettings;
 
+
+import java.util.function.BooleanSupplier;
 import java.util.*;
 
 @ScriptManifest(author = "cno", name = "Complete Slayer Bot", version = 1.0, description = "Autonomous Slayer bot", category = Category.COMBAT)
-public class SlayerBotFull extends AbstractScript {
+public class SlayerBot extends AbstractScript {
 
     private enum State {
         GET_TASK, TRAVEL, BANK, COMBAT, HEAL, POTIONS, IDLE
@@ -140,7 +144,7 @@ public class SlayerBotFull extends AbstractScript {
     }
 
     private void bankSupplies() {
-        if (Bank.openClosest()) {
+        if (Bank.open()) {
             sleepUntil(Bank::isOpen, 3000);
             Bank.depositAllExcept(item -> teleportItems.contains(item.getName()));
             withdrawIfNeeded("Manta ray", 20);
@@ -189,12 +193,15 @@ public class SlayerBotFull extends AbstractScript {
     }
 
     private void performAntiBan() {
-        if (Calculations.random(0, 100) < 50) {
-            getMouse().moveMouseOutsideScreen();
-        } else {
-            getCamera().rotateToPitch(Calculations.random(0, 383));
+        MouseSettings.setSpeed(Calculations.random(80, 120));
+        sleep(Calculations.random(300, 1200));
+
+        Camera.rotateToPitch(Calculations.random(60, 383));
+        if (Calculations.random(0, 100) < 30) {
+            Camera.rotateToYaw(Calculations.random(0, 360));
         }
     }
+
 
     @Override
     public void onExit() {
