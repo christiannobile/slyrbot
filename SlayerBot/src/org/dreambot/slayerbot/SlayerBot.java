@@ -1,206 +1,287 @@
 package org.dreambot.slayerbot;
-
-import org.dreambot.api.script.Category;
-import org.dreambot.api.methods.Calculations;
-import org.dreambot.api.methods.container.impl.bank.Bank;
-import org.dreambot.api.methods.container.impl.bank.BankMode;
-import org.dreambot.api.methods.container.impl.equipment.Equipment;
-import org.dreambot.api.methods.dialogues.Dialogues;
-import org.dreambot.api.methods.interactive.GameObjects;
-import org.dreambot.api.methods.item.GroundItems;
 import org.dreambot.api.methods.container.impl.Inventory;
-import org.dreambot.api.methods.map.Area;
-import org.dreambot.api.methods.map.Tile;
-import org.dreambot.api.methods.prayer.Prayer;
+import org.dreambot.api.methods.container.impl.bank.Bank;
+import org.dreambot.api.methods.container.impl.equipment.Equipment;
+import org.dreambot.api.methods.grandexchange.GrandExchange;
+import org.dreambot.api.methods.grandexchange.GrandExchangeItem;
+import org.dreambot.api.methods.magic.Spellbook;
+import org.dreambot.api.methods.walking.impl.Walking;
+import org.dreambot.api.methods.interactive.Players;
 import org.dreambot.api.methods.skills.Skill;
-import org.dreambot.api.methods.MethodProvider;
-import org.dreambot.api.methods.tabs.Tabs;
-import org.dreambot.api.script.AbstractScript;
-import org.dreambot.api.script.ScriptManifest;
-import org.dreambot.api.script.listener.ChatListener;
-import org.dreambot.api.methods.widget.messages.Message;
-import org.dreambot.api.utilities.Timer;
-import org.dreambot.api.wrappers.interactive.GameObject;
-import org.dreambot.api.wrappers.interactive.NPC;
 import org.dreambot.api.wrappers.items.Item;
-import org.dreambot.api.events.listeners.ChatListener;
-import org.dreambot.api.script.events.ChatMessageEvent;
+import org.dreambot.api.methods.MethodProvider;
+import org.dreambot.api.wrappers.interactive.GameObject;
+import org.dreambot.api.utilities.Timer;
+import org.dreambot.api.methods.map.Tile;
 
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 
-@ScriptManifest(
-        author = "SlayerDev",
-        name = "SlayerBot",
-        version = 2.0,
-        description = "Fully autonomous slayer bot with banking, GE, travel, and combat",
-        category = Category.COMBAT
-)
-public class SlayerBot extends AbstractScript implements ChatListener {
+public class SlayerTaskManager {
 
-    private String currentTask = "";
-    private int taskAmount = 0;
-    private Timer taskTimer;
-    private final Area geArea = new Area(3164, 3487, 3171, 3492);
+    private static final Map<String, List<String>> MELEE_GEAR = Map.of(
+            "default", List.of("Dragon Scimitar", "Rune Platebody", "Rune Platelegs", "Dragon Defender", "Amulet of Strength")
+            // add more monster-specific melee gear here
+    );
+    private static final Map<String, List<String>> RANGED_GEAR = Map.of(
+            "default", List.of("Karil's Crossbow", "Black D'hide Body", "Black D'hide Chaps", "Archers Ring", "Ava's Accumulator")
+            // add more monster-specific ranged gear here
+    );
+    private static final Map<String, List<String>> MAGIC_GEAR = Map.of(
+            "default", List.of("Mystic Hat", "Mystic Robe Top", "Mystic Robe Bottom", "Occult Necklace", "Ahrim's Staff")
+            // add more monster-specific magic gear here
+    );
 
-    @Override
-    public void onStart() {
-        log("SlayerBot started.");
-        taskTimer = new Timer(60 * 60 * 1000);
-    }
+    private static final Map<String, List<String>> INVENTORY_SETUP = Map.of(
+            "melee", List.of("Saradomin brew(4)", "Super restore(4)", "Sharks", "Dragon bones", "Dwarf cannon", "Cannonball"),
+            "ranged", List.of("Ranging potion(4)", "Super restore(4)", "Sharks", "Rune arrows"),
+            "magic", List.of("Magic potion(4)", "Super restore(4)", "Sharks", "Law rune", "Fire rune")
+    );
 
-    @Override
-    public int onLoop() {
-        if (!getClient().isLoggedIn()) {
-            // Client handles login and bank pin
-            return Calculations.random(3000, 5000);
+    private static final List<String> AMMO_ITEMS = List.of("Rune arrows", "Dragon arrows", "Bolt racks");
+
+    private static final List<String> POTION_BASE_NAMES = List.of("Saradomin brew", "Super restore", "Ranging potion", "Magic potion");
+
+    private static final String CANNON_NAME = "Dwarf cannon";
+    private static final String CANNONBALL_NAME = "Cannonball";
+
+    private final SlayerTeleportHelper teleportHelper = new SlayerTeleportHelper();
+
+    private static final int AMMO_RESTOCK_THRESHOLD = 20;
+
+    public void handleSlayerTask(String monsterName) {
+        MethodProvider.log("=== Slayer Task Handling started for monster: " + monsterName + " ===");
+
+        String combatStyle = determineCombatStyle(monsterName);
+        MethodProvider.log("Determined combat style: " + combatStyle);
+
+        equipBestGear(monsterName, combatStyle);
+        manageInventory(combatStyle);
+        if ("ranged".equals(combatStyle)) manageAmmo();
+        setupCannon();
+        buyMissingItems(combatStyle);
+
+        boolean teleported = teleportHelper.teleportToTask(monsterName);
+        if (!teleported) {
+            MethodProvider.log("Teleport failed or unavailable, walking to Slayer task area.");
+            walkToTaskArea(monsterName);
         }
 
-        if (getSkills().getBoostedLevels(Skill.HITPOINTS) < 10) {
-            eatFood();
-            return Calculations.random(600, 1200);
-        }
-
-        if (currentTask.isEmpty() || taskAmount <= 0 || taskTimer.expired()) {
-            getNewTask();
-            return Calculations.random(1000, 1500);
-        }
-
-        if (!isAtTaskArea()) {
-            travelToTask();
-            return Calculations.random(1000, 2000);
-        }
-
-        if (Inventory.isFull()) {
-            bankLoot();
-            return Calculations.random(800, 1200);
-        }
-
-        drinkPotionIfNeeded();
-        usePrayer();
-        fightMonster();
-        performAntiBan();
-
-        return Calculations.random(600, 900);
+        MethodProvider.log("=== Slayer Task Handling completed for monster: " + monsterName + " ===");
     }
 
-    private void getNewTask() {
-        log("Getting new Slayer task...");
-        getWalking().walk(new Tile(3095, 3511)); // Example: Mazchna
-        MethodProvider.sleepUntil(() -> getLocalPlayer().distance(new Tile(3095, 3511)) < 5, 10000);
-        NPC slayerMaster = getNpcs().closest("Mazchna");
-        if (slayerMaster != null && slayerMaster.interact("Assignment")) {
-            MethodProvider.sleepUntil(() -> !currentTask.isEmpty(), 8000);
-        }
-        taskTimer.reset();
+    private String determineCombatStyle(String monsterName) {
+        monsterName = monsterName.toLowerCase();
+        if (monsterName.contains("dragon") || monsterName.contains("kurask")) return "ranged";
+        if (monsterName.contains("dust devil") || monsterName.contains("black demon")) return "magic";
+        return "melee";
     }
 
-    private boolean isAtTaskArea() {
-        return getNpcs().closest(n -> n.getName().equalsIgnoreCase(currentTask)) != null;
-    }
+    private void equipBestGear(String monsterName, String combatStyle) {
+        MethodProvider.log("Equipping gear for combat style: " + combatStyle);
+        List<String> gearList = switch (combatStyle) {
+            case "ranged" -> RANGED_GEAR.getOrDefault(monsterName.toLowerCase(), RANGED_GEAR.get("default"));
+            case "magic" -> MAGIC_GEAR.getOrDefault(monsterName.toLowerCase(), MAGIC_GEAR.get("default"));
+            default -> MELEE_GEAR.getOrDefault(monsterName.toLowerCase(), MELEE_GEAR.get("default"));
+        };
 
-    private void travelToTask() {
-        log("Travelling to task area...");
-        getWalking().walk(getClosestTaskTile());
-        MethodProvider.sleepUntil(this::isAtTaskArea, 15000);
-    }
-
-    private Tile getClosestTaskTile() {
-        NPC monster = getNpcs().closest(currentTask);
-        if (monster != null) return monster.getTile();
-        return new Tile(3200, 3200); // fallback
-    }
-
-    private void fightMonster() {
-        NPC monster = getNpcs().closest(n -> n.getName().equalsIgnoreCase(currentTask) && !n.isInCombat());
-        if (monster != null && monster.interact("Attack")) {
-            MethodProvider.sleepUntil(() -> getCombat().isInCombat(), 5000);
+        for (String gear : gearList) {
+            if (!Equipment.contains(gear)) {
+                Item item = Inventory.get(gear);
+                if (item != null) {
+                    if (item.interact("Wear")) {
+                        MethodProvider.sleepUntil(() -> Equipment.contains(gear), 4000);
+                        MethodProvider.log("Equipped " + gear);
+                    }
+                } else {
+                    MethodProvider.log("Missing gear item in inventory: " + gear);
+                }
+            }
         }
     }
 
-    private void bankLoot() {
-        if (Bank.open()) {
-            Bank.depositAllExcept(item ->
-                    item.getName().toLowerCase().contains("slayer") ||
-                            item.getName().toLowerCase().contains("food") ||
-                            item.getName().toLowerCase().contains("potion")
-            );
-            Bank.close();
+    private void manageInventory(String combatStyle) {
+        MethodProvider.log("Managing inventory for combat style: " + combatStyle);
+
+        List<String> neededItems = INVENTORY_SETUP.getOrDefault(combatStyle, Collections.emptyList());
+
+        // Bank all low dose potions and withdraw full dose potions
+        for (String potionBase : POTION_BASE_NAMES) {
+            // Bank partial dose potions (1 or 2 doses)
+            for (int dose = 1; dose <= 2; dose++) {
+                String lowDose = potionBase + "(" + dose + ")";
+                if (Inventory.contains(lowDose)) {
+                    MethodProvider.log("Banking low dose potion: " + lowDose);
+                    Bank.depositAll(lowDose);
+                    MethodProvider.sleepUntil(() -> !Inventory.contains(lowDose), 3000);
+                }
+            }
+            // Withdraw full dose potions
+            String fullDose = potionBase + "(4)";
+            if (!Inventory.contains(fullDose)) {
+                if (Bank.contains(fullDose)) {
+                    Bank.withdraw(fullDose, 1);
+                    MethodProvider.sleepUntil(() -> Inventory.contains(fullDose), 4000);
+                } else {
+                    MethodProvider.log("No full dose potion found in bank: " + fullDose);
+                    buyFromGrandExchange(fullDose, 1);
+                }
+            }
+        }
+
+        // Withdraw other needed items from bank
+        for (String itemName : neededItems) {
+            if (!Inventory.contains(itemName) && Bank.contains(itemName)) {
+                MethodProvider.log("Withdrawing item from bank: " + itemName);
+                Bank.withdraw(itemName, 1);
+                MethodProvider.sleepUntil(() -> Inventory.contains(itemName), 4000);
+            }
+        }
+    }
+
+    private void manageAmmo() {
+        MethodProvider.log("Managing ammo for ranged combat");
+
+        for (String ammoName : AMMO_ITEMS) {
+            int currentCount = Inventory.count(ammoName);
+            if (currentCount < AMMO_RESTOCK_THRESHOLD) {
+                MethodProvider.log("Ammo low (" + currentCount + "), restocking " + ammoName);
+                if (Bank.contains(ammoName)) {
+                    Bank.withdraw(ammoName, 100);
+                    MethodProvider.sleepUntil(() -> Inventory.count(ammoName) > currentCount, 5000);
+                } else {
+                    MethodProvider.log("No ammo in bank, trying to buy " + ammoName);
+                    buyFromGrandExchange(ammoName, 100);
+                }
+            }
+        }
+    }
+
+    private void setupCannon() {
+        MethodProvider.log("Checking cannon setup...");
+
+        if (isCannonSetUp()) {
+            MethodProvider.log("Cannon already set up.");
+            return;
+        }
+
+        if (Inventory.contains(CANNON_NAME)) {
+            Item cannon = Inventory.get(CANNON_NAME);
+            if (cannon != null && cannon.interact("Setup")) {
+                MethodProvider.sleep(5000);
+                MethodProvider.log("Cannon setup initiated.");
+            }
         } else {
-            GameObject booth = GameObjects.closest("Bank booth");
-            if (booth != null) booth.interact("Bank");
+            MethodProvider.log("No cannon in inventory to set up.");
         }
     }
 
-    private void eatFood() {
-        Item food = Inventory.get(item ->
-                item.getName().toLowerCase().contains("shark") ||
-                        item.getName().toLowerCase().contains("lobster")
-        );
-        if (food != null) {
-            food.interact("Eat");
-            sleep(Calculations.random(600, 900));
-        } else {
-            buyFromGE("Shark", 100);
+    private boolean isCannonSetUp() {
+        List<GameObject> cannonObjects = MethodProvider.getGameObjects().all(gameObject -> gameObject != null && gameObject.getName() != null && gameObject.getName().equalsIgnoreCase(CANNON_NAME));
+        return !cannonObjects.isEmpty();
+    }
+
+    private void buyMissingItems(String combatStyle) {
+        MethodProvider.log("Checking and buying missing items from Grand Exchange...");
+
+        List<String> itemsToCheck = new ArrayList<>(INVENTORY_SETUP.getOrDefault(combatStyle, Collections.emptyList()));
+
+        if ("ranged".equals(combatStyle)) {
+            itemsToCheck.addAll(AMMO_ITEMS);
+        }
+
+        List<String> gearList = switch (combatStyle) {
+            case "ranged" -> RANGED_GEAR.getOrDefault("default", Collections.emptyList());
+            case "magic" -> MAGIC_GEAR.getOrDefault("default", Collections.emptyList());
+            default -> MELEE_GEAR.getOrDefault("default", Collections.emptyList());
+        };
+        itemsToCheck.addAll(gearList);
+
+        for (String itemName : itemsToCheck) {
+            if (!Inventory.contains(itemName) && !Equipment.contains(itemName) && !Bank.contains(itemName)) {
+                MethodProvider.log("Item missing: " + itemName + ", buying from Grand Exchange...");
+                buyFromGrandExchange(itemName, 1);
+            }
         }
     }
 
-    private void drinkPotionIfNeeded() {
-        if (getSkills().getBoostedLevels(Skill.STRENGTH) < getSkills().getRealLevel(Skill.STRENGTH) + 3) {
-            Item potion = Inventory.get(i -> i.getName().toLowerCase().contains("strength potion"));
-            if (potion != null) {
-                potion.interact("Drink");
+    private void buyFromGrandExchange(String itemName, int quantity) {
+        MethodProvider.log("Attempting to buy " + quantity + "x " + itemName + " from Grand Exchange.");
+
+        if (!GrandExchange.isOpen()) {
+            GrandExchange.open();
+            MethodProvider.sleepUntil(GrandExchange::isOpen, 5000);
+        }
+
+        if (GrandExchange.isOpen()) {
+            GrandExchangeOffer offer = GrandExchange.createBuyOffer(itemName, quantity);
+            if (offer != null) {
+                offer.setPrice(calculatePrice(itemName));
+                offer.submit();
+                MethodProvider.log("Buy offer submitted for " + itemName);
+                Timer timer = new Timer(60000);
+                while (!offer.isFinished() && !timer.expired()) {
+                    MethodProvider.sleep(1000);
+                }
+                if (offer.isFinished()) {
+                    MethodProvider.log("Buy offer for " + itemName + " completed.");
+                    GrandExchange.collect();
+                } else {
+                    MethodProvider.log("Buy offer for " + itemName + " timed out.");
+                }
             } else {
-                buyFromGE("Strength potion(4)", 10);
+                MethodProvider.log("Failed to create buy offer for " + itemName);
             }
+            GrandExchange.close();
         }
     }
 
-    private void usePrayer() {
-        if (!getPrayer().isActive(Prayer.PROTECT_FROM_MELEE)) {
-            getPrayer().toggle(Prayer.PROTECT_FROM_MELEE);
+    private int calculatePrice(String itemName) {
+        // Placeholder: returns a price with a 10% margin above GE market price
+        int marketPrice = GrandExchange.getPrice(itemName);
+        int price = (int) (marketPrice * 1.10);
+        MethodProvider.log("Calculated buy price for " + itemName + ": " + price);
+        return price;
+    }
+
+    private void walkToTaskArea(String monsterName) {
+        // This method would contain walking logic based on the monster's slayer area
+        MethodProvider.log("Walking to Slayer task area for monster: " + monsterName);
+        // Placeholder example
+        Tile taskTile = getTaskAreaTile(monsterName);
+        if (taskTile != null) {
+            Walking.walk(taskTile);
+            MethodProvider.sleepUntil(() -> Players.localPlayer().getTile().distance(taskTile) < 5, 15000);
         }
     }
 
-    private void buyFromGE(String itemName, int quantity) {
-        log("Buying from GE: " + itemName);
-        getWalking().walk(geArea.getRandomTile());
-        MethodProvider.sleepUntil(() -> geArea.contains(getLocalPlayer()), 10000);
-        NPC geClerk = getNpcs().closest("Grand Exchange Clerk");
-        if (geClerk != null && geClerk.interact("Exchange")) {
-            MethodProvider.sleepUntil(() -> getGrandExchange().isOpen(), 10000);
-            if (getGrandExchange().openBuyScreen(0)) {
-                getGrandExchange().buyItem(itemName, 1000, quantity); // 1000 = high price
-                MethodProvider.sleepUntil(() -> Inventory.contains(itemName), 15000);
+    private Tile getTaskAreaTile(String monsterName) {
+        // Map monster name to Slayer task area tile for walking fallback
+        return switch (monsterName.toLowerCase()) {
+            case "dust devil" -> new Tile(3328, 3838, 0);
+            case "kurask" -> new Tile(2850, 3546, 0);
+            default -> new Tile(3000, 3200, 0);
+        };
+    }
+
+    // You can extend this helper or replace with your teleport code
+    static class SlayerTeleportHelper {
+        boolean teleportToTask(String monsterName) {
+            // Try teleporting with jewelry, spells, or other means
+            MethodProvider.log("Attempting teleport to task area for " + monsterName);
+
+            // Example: Teleport using Slayer ring or Teleport tablets
+            if (Inventory.contains("Slayer ring")) {
+                Item ring = Inventory.get("Slayer ring");
+                if (ring != null && ring.interact("Rub")) {
+                    MethodProvider.sleepUntil(() -> Players.localPlayer().isAnimating(), 5000);
+                    MethodProvider.sleep(3000); // Wait for teleport
+                    return true;
+                }
             }
-        }
-    }
 
-    private void performAntiBan() {
-        int random = Calculations.random(0, 1000);
-        if (random < 10) { // ~1% chance each loop to do an anti-ban action
-            // Randomly open tabs
-            List<Tabs.Tab> tabs = Arrays.asList(Tabs.Tab.values());
-            Tabs.Tab tab = tabs.get(Calculations.random(0, tabs.size() - 1));
-            Tabs.open(tab);
-            sleep(Calculations.random(500, 1000));
-            Tabs.open(Tabs.Tab.INVENTORY);
-        } else if (random < 20) {
-            // Random camera movement
-            int yaw = Calculations.random(0, 360);
-            int pitch = Calculations.random(10, 90);
-            getCamera().rotateTo(yaw, pitch);
-        }
-    }
+            // Add more teleport logic here (spells, tablets, etc.)
 
-    @Override
-    public void onChatMessage(ChatMessageEvent event) {
-        String message = event.getMessage();
-        if (message.contains("Your slayer task is to kill")) {
-            currentTask = message.split("kill ")[1].split("\\.")[0];
-            // TODO: parse actual amount from message if possible
-            taskAmount = 100;
-            log("New task: " + currentTask + " x" + taskAmount);
+            return false; // Teleport not available
         }
     }
 }
